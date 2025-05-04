@@ -30,7 +30,7 @@ export class SocketGateway {
 
   private joinRoom(roomName: string, client: Socket) {
     client.join(roomName);
-    console.log('4 Inside Joinrooms function', roomName);
+
     const room = this.rooms.get(roomName);
     if (!room) {
       throw new Error('Room does not exist');
@@ -190,8 +190,6 @@ export class SocketGateway {
     }
 
     user.ready = data.ready;
-
-    console.log('Ive get toggle redy req', data);
 
     this.server
       .to(data.roomName)

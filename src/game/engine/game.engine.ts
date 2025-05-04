@@ -30,12 +30,10 @@ export class GameEngine {
       id: user,
       hand: [],
       chamber: [...DEFAULT_CHAMBER],
-      // chamber: [...DEFAULT_CHAMBER],
     }));
 
     this.players.forEach((player: Player) => {
       this.loadBullet(player.id);
-      // this.shuffleChamber(player.id);
     });
 
     this.deck = [...DEFAULT_DECK];
