@@ -15,6 +15,7 @@ export class GameEngine {
 
   konCard: CardRank;
   //new stuff
+  gameStarted: boolean = false;
   gameOver: boolean = false;
   previousPlayer: string;
   isAllActions: boolean = true;
@@ -25,7 +26,7 @@ export class GameEngine {
     if (users.length > this.maxPlayers) {
       throw new Error('Too many players');
     }
-
+    this.gameStarted = true;
     this.players = users.map((user) => ({
       id: user,
       hand: [],
@@ -43,6 +44,10 @@ export class GameEngine {
     this.dealCards();
     this.chooseKonCard();
     this.chooseFirstPlayer();
+  }
+
+  public removePlayer(id: string) {
+    this.players = this.players.filter((player) => player.id !== id);
   }
 
   public loadBullet(id: string) {

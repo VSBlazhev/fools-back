@@ -29,13 +29,11 @@ export class SocketGateway {
   private timers: Map<string, NodeJS.Timeout> = new Map();
 
   private joinRoom(roomName: string, client: Socket) {
-    client.join(roomName);
-
     const room = this.rooms.get(roomName);
     if (!room) {
       throw new Error('Room does not exist');
     }
-
+    client.join(roomName);
     if (!room.clients[client.id]) {
       room.clients[client.id] = { ready: false };
     }
@@ -137,6 +135,20 @@ export class SocketGateway {
     if (!room) {
       throw new Error('Room does not exist');
     }
+    const game = this.getGameEngine(data.roomName);
+
+    if (game) {
+      game.removePlayer(client.id);
+
+      if (game.players.length <= 1) {
+        console.log('1 Player left');
+        this.server.to(data.roomName).emit('gameOver', { gameOver: true });
+
+        setTimeout(() => {
+          this.gameEngines.delete(data.roomName);
+        }, 5000);
+      }
+    }
 
     client.leave(data.roomName);
     delete room.clients[client.id];
@@ -191,13 +203,15 @@ export class SocketGateway {
 
     user.ready = data.ready;
 
+    const usersLength = Object.keys(users).length;
+
     this.server
       .to(data.roomName)
       .emit('playerStatus', { userId: client.id, ready: data.ready });
 
     const allReady = Object.values(users).every((status) => status.ready);
 
-    if (allReady) {
+    if (allReady && usersLength > 1) {
       const timer = setTimeout(() => {
         this.server.to(data.roomName).emit('gameReady', {
           message: 'All players are ready!',
@@ -206,12 +220,6 @@ export class SocketGateway {
         this.newGame(data.roomName);
         this.gameEngines.get(data.roomName)?.initPlayers(playersIds);
         this.sendGameState(data.roomName);
-        // const gameState = this.gameEngines.get(data.roomName)?.getState();
-        // playersIds.forEach((userId) => {
-        //   const hand = this.gameEngines.get(data.roomName)?.sendHand(userId);
-        //   this.server.to(userId).emit('hand', hand);
-        // });
-        // this.server.to(data.roomName).emit('gameState', gameState);
         this.timers.delete(data.roomName);
       }, 5000);
 
@@ -240,20 +248,38 @@ export class SocketGateway {
       return this.joinRoom(`room${this.rooms.size - 1}`, client);
     }
     const rooms = Array.from(this.rooms.entries());
-    const availableRoom = rooms.find(
-      (room) =>
-        Object.keys(room[1].clients).length >= 0 &&
-        Object.keys(room[1].clients).length < 4,
+
+    // const availableRoom = rooms.find(
+    //   (room) =>
+    //     Object.keys(room[1].clients).length >= 0 &&
+    //     Object.keys(room[1].clients).length < 4,
+    // );
+
+    const availableRoom = rooms.filter(
+      ([, room]) => Object.keys(room.clients).length < 4,
     );
-    if (!availableRoom) {
+
+    console.log('Available rooms info', availableRoom, availableRoom.length);
+
+    if (availableRoom.length === 0) {
       this.rooms.set(`room${this.rooms.size}`, {
         clients: {},
       });
 
-      return this.joinRoom(`room${this.rooms.size}`, client);
+      return this.joinRoom(`room${this.rooms.size - 1}`, client);
     }
 
-    return this.joinRoom(availableRoom[0], client);
+    const roomsWithoutEngine = availableRoom.filter(
+      ([id]) => !this.gameEngines.has(id) && !this.timers.has(id),
+    );
+    console.log('No engine rooms info', roomsWithoutEngine);
+    if (roomsWithoutEngine.length > 0) {
+      const [roomId] = roomsWithoutEngine[0];
+      return this.joinRoom(roomId, client);
+    }
+
+    this.rooms.set(`room${this.rooms.size}`, { clients: {} });
+    return this.joinRoom(`room${this.rooms.size - 1}`, client);
   }
 
   @SubscribeMessage('playCards')
@@ -328,6 +354,9 @@ export class SocketGateway {
         this.server
           .to(data.roomName)
           .emit('gameOver', { gameOver: game.gameOver });
+        setTimeout(() => {
+          this.gameEngines.delete(data.roomName);
+        }, 5000);
       }
     } else {
       this.server
