@@ -8,6 +8,7 @@ import {
 import { GameEngine } from '../game/engine/game.engine';
 import { Server, Socket } from 'socket.io';
 import { Card } from '../game/interfaces/card.interface';
+import { Player } from '../game/interfaces/player.interface';
 
 interface Room {
   password?: string;
@@ -71,18 +72,20 @@ export class SocketGateway {
 
   private sendGameState(roomName: string) {
     const game = this.getGameEngine(roomName);
+
     const users = this.rooms.get(roomName)?.clients;
 
     if (!game || !users) {
       throw new Error('Game not found.');
     }
-    const usersIds = Object.keys(users);
+
     const gameState = game.getState();
 
-    usersIds.forEach((userId) => {
-      const hand = game.sendHand(userId);
-      this.server.to(userId).emit('hand', hand);
+    game.players.forEach((player: Player) => {
+      const hand = game.sendHand(player.id);
+      this.server.to(player.id).emit('hand', hand);
     });
+
     this.server.to(roomName).emit('gameState', gameState);
   }
 
@@ -348,8 +351,8 @@ export class SocketGateway {
     if (!isAlive) {
       this.server
         .to(data.roomName)
-        .emit('shootResult', { result: 'Oops you are dead' });
-      console.log('Game over', game.gameOver);
+        .emit('shootResult', { result: 'Oops you are dead', alive: isAlive });
+
       if (game.gameOver) {
         this.server
           .to(data.roomName)
@@ -359,11 +362,22 @@ export class SocketGateway {
         }, 5000);
       }
     } else {
-      this.server
-        .to(data.roomName)
-        .emit('shootResult', { result: 'You are lucky to be alive' });
-      this.server.to(data.roomName).emit('newRound');
-      this.sendGameState(data.roomName);
+      this.server.to(data.roomName).emit('shootResult', {
+        result: 'You are lucky to be alive',
+        alive: isAlive,
+      });
     }
+  }
+
+  @SubscribeMessage('nextRound')
+  handleNextRound(
+    @MessageBody()
+    data: {
+      roomName: string;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.server.to(data.roomName).emit('newRound');
+    this.sendGameState(data.roomName);
   }
 }

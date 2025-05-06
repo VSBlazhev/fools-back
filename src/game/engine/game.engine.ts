@@ -27,10 +27,11 @@ export class GameEngine {
       throw new Error('Too many players');
     }
     this.gameStarted = true;
-    this.players = users.map((user) => ({
+    this.players = users.map((user, index) => ({
+      name: `Player ${index + 1}`,
       id: user,
       hand: [],
-      chamber: [...DEFAULT_CHAMBER],
+      chamber: [...DEFAULT_TEST_CHAMBER],
     }));
 
     this.players.forEach((player: Player) => {
@@ -78,7 +79,7 @@ export class GameEngine {
       fired: fired,
     });
     if (fired) {
-      this.players = this.players.filter((player) => player.id !== id);
+      this.removePlayer(id);
       console.log('Players length before IF statement', this.players.length);
       if (this.players.length === 1) {
         console.log('Players length', this.players.length);
@@ -109,7 +110,7 @@ export class GameEngine {
 
     this.dealCards();
     this.chooseKonCard();
-    this.chooseFirstPlayer();
+    // this.chooseFirstPlayer();
   }
 
   public shuffleDeck() {
@@ -234,9 +235,5 @@ export class GameEngine {
   public nextTurn() {
     this.currentPlayerIndex =
       (this.currentPlayerIndex + 1) % this.players.length;
-  }
-
-  public isGameOver(): boolean {
-    return this.players.every((p) => p.hand.length === 0);
   }
 }
