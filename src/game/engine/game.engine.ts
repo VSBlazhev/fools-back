@@ -31,7 +31,7 @@ export class GameEngine {
       name: `Player ${index + 1}`,
       id: user,
       hand: [],
-      chamber: [...DEFAULT_TEST_CHAMBER],
+      chamber: [...DEFAULT_CHAMBER],
     }));
 
     this.players.forEach((player: Player) => {
